@@ -1,162 +1,220 @@
-import React from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  Image,
-  ImageBackground,
-  TextInput,
-  Pressable,
-  FlatList,
-} from 'react-native';
-import {
-  SearchNormal,
-  Notification,
-  Heart,
-  Profile,
-  Bookmark,
-} from 'iconsax-react-native';
-import {fontType, colors} from './src/theme';
+import React, { useState } from 'react';
+import {ScrollView, StyleSheet, Text, View, ImageBackground, TextInput, Pressable} from 'react-native';
+import { Home, Notification, Bookmark, Profile, SearchNormal, Layer } from 'iconsax-react-native';
+import { bannerData, categories, recommendedData, popularData,dailyTips} from './src/data';
 
-// Data Dummy
-const bannerData = [
-  {id: 1, image: require('./src/assets/banner1.jpg'), title: 'Tips Menjaga Kesehatan di Musim Hujan'},
-  {id: 2, image: require('./src/assets/banner1.jpg'), title: 'Pentingnya Vaksinasi untuk Anak'},
-  {id: 3, image: require('./src/assets/banner1.jpg'), title: 'Cara Menjaga Kesehatan Mental'},
-];
+// Theme Configuration
+const fontType = {
+  'Pop-Regular': 'Poppins-Regular',
+  'Pop-SemiBold': 'Poppins-SemiBold',
+  'Pjs-Medium': 'PlusJakartaSans-Medium',
+  'Pjs-SemiBold': 'PlusJakartaSans-SemiBold',
+};
 
-const categories = [
-  {id: 1, icon: '👶', name: 'Kesehatan Anak'},
-  {id: 2, icon: '👵', name: 'Kesehatan Lansia'},
-  {id: 3, icon: '🍎', name: 'Nutrisi dan Diet'},
-  {id: 4, icon: '🏋️', name: 'Olahraga dan Kebugaran'},
-  {id: 5, icon: '🩺', name: 'Penyakit dan Pencegahan'},
-  {id: 6, icon: '🧠', name: 'Kesehatan Mental'},
-];
+const colors = {
+  white: () => '#FFFFFF',
+  grey: (opacity = 1) => `rgba(100, 100, 100, ${opacity})`,
+  greenMint: (opacity = 1) => `rgba(0, 200, 150, ${opacity})`,
+};
 
-const recommendedData = [
-  {id: 1, image: require('./src/assets/article1.jpg'), title: '5 Manfaat Olahraga Pagi', duration: 'Baca 5 menit'},
-  {id: 2, image: require('./src/assets/article1.jpg'), title: 'Diet Sehat untuk Pemula', duration: 'Baca 7 menit'},
-  {id: 3, image: require('./src/assets/article1.jpg'), title: 'Cara Mengatasi Stres', duration: 'Baca 6 menit'},
-];
+export default function App() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('home');
+  const [bookmarkedArticles, setBookmarkedArticles] = useState([]);
 
-const popularData = [
-  {id: 1, title: '10 Makanan Sehat untuk Jantung', views: '1.2k'},
-  {id: 2, title: 'Yoga untuk Pemula', views: '950'},
-  {id: 3, title: 'Cara Menjaga Kesehatan Mata', views: '1.5k'},
-];
+  const handleBookmark = (articleId) => {
+    setBookmarkedArticles(prev => 
+      prev.includes(articleId)
+        ? prev.filter(id => id !== articleId)
+        : [...prev, articleId]
+    );
+  };
 
-// Komponen Banner/Carousel
-const BannerCarousel = () => {
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bannerContainer}>
-      {bannerData.map(item => (
-        <ImageBackground key={item.id} source={item.image} style={styles.bannerImage}>
-          <Text style={styles.bannerText}>{item.title}</Text>
+  const handleTabPress = (tabName) => {
+    setActiveTab(tabName);
+  };
+
+  const handleSearch = () => {
+    console.log('Searching for:', searchQuery);
+  };
+
+  // Component: Banner Item
+  const BannerItem = ({ image, title }) => {
+    return (
+      <View>
+        <ImageBackground source={image} style={styles.bannerImage}>
+          <Text style={styles.bannerText}>{title}</Text>
         </ImageBackground>
-      ))}
-    </ScrollView>
-  );
-};
+      </View>
+    );
+  };
 
-// Komponen Kategori Konten
-const CategoryGrid = () => {
-  return (
-    <FlatList
-      data={categories}
-      numColumns={3}
-      keyExtractor={item => item.id.toString()}
-      renderItem={({item}) => (
-        <View style={styles.categoryItem}>
-          <Text style={styles.categoryIcon}>{item.icon}</Text>
-          <Text style={styles.categoryName}>{item.name}</Text>
+  // Component: Article Card
+  const ArticleCard = ({ id, image, title, duration }) => {
+    const isBookmarked = bookmarkedArticles.includes(id);
+
+    return (
+      <View style={styles.recommendedCard}>
+        <ImageBackground source={image} style={styles.recommendedImage}>
+          <Pressable 
+            style={styles.bookmarkButton} 
+            onPress={() => handleBookmark(id)}
+          >
+            <Bookmark 
+              size={20} 
+              color={isBookmarked ? colors.greenMint() : colors.white()} 
+              variant={isBookmarked ? 'Bold' : 'Linear'}
+            />
+          </Pressable>
+        </ImageBackground>
+        <View style={styles.articleContent}>
+          <Text style={styles.recommendedTitle}>{title}</Text>
+          <Text style={styles.recommendedDuration}>{duration}</Text>
         </View>
-      )}
-      contentContainerStyle={styles.categoryContainer}
-    />
-  );
-};
+      </View>
+    );
+  };
 
-// Komponen Konten Rekomendasi Harian
-const RecommendedContent = () => {
-  return (
-    <View style={styles.recommendedContainer}>
-      <Text style={styles.sectionTitle}>Rekomendasi untuk Anda</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {recommendedData.map(item => (
-          <View key={item.id} style={styles.recommendedCard}>
-            <Image source={item.image} style={styles.recommendedImage} />
-            <Text style={styles.recommendedTitle}>{item.title}</Text>
-            <Text style={styles.recommendedDuration}>{item.duration}</Text>
-            <Pressable style={styles.readMoreButton}>
-              <Text style={styles.readMoreText}>Baca Selengkapnya</Text>
-            </Pressable>
-          </View>
+  // Component: Banner Carousel
+  const BannerCarousel = () => {
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bannerContainer}>
+        {bannerData.map(item => (
+          <BannerItem 
+            key={item.id} 
+            image={item.image} 
+            title={item.title}
+          />
         ))}
       </ScrollView>
-    </View>
-  );
-};
+    );
+  };
 
-// Komponen Tips Kesehatan Harian
-const DailyTip = () => {
-  return (
-    <View style={styles.tipContainer}>
-      <Text style={styles.sectionTitle}>Tips Sehat Hari Ini</Text>
-      <View style={styles.tipCard}>
-        <Text style={styles.tipIcon}>💧</Text>
-        <Text style={styles.tipText}>Minum 8 gelas air sehari untuk menjaga hidrasi tubuh.</Text>
+  // Component: Category Grid
+  const CategoryGrid = () => {
+    return (
+      <View style={styles.categoryContainer}>
+        {categories.map(item => (
+          <View key={item.id} style={styles.categoryItem}>
+            <Text style={styles.categoryIcon}>{item.icon}</Text>
+            <Text style={styles.categoryName}>{item.name}</Text>
+          </View>
+        ))}
       </View>
-    </View>
-  );
-};
+    );
+  };
 
-// Komponen Konten Populer
-const PopularContent = () => {
-  return (
-    <View style={styles.popularContainer}>
-      <Text style={styles.sectionTitle}>Populer Minggu Ini</Text>
-      <FlatList
-        data={popularData}
-        keyExtractor={item => item.id.toString()}
-        renderItem={({item}) => (
-          <View style={styles.popularItem}>
+  const RecommendedContent = () => {
+    return (
+      <View style={styles.recommendedContainer}>
+        <Text style={styles.sectionTitle}>Rekomendasi untuk Anda</Text>
+        <View style={styles.recommendedList}>
+          {recommendedData.map(item => (
+            <ArticleCard 
+              key={item.id}
+              id={item.id}
+              image={item.image}
+              title={item.title}
+              duration={item.duration}
+            />
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  // Component: Daily Tip
+  const DailyTip = () => {
+    return (
+      <View style={styles.tipContainer}>
+        <Text style={styles.sectionTitle}>Tips Sehat Hari Ini</Text>
+        <View style={styles.tipCard}>
+          <Text style={styles.tipIcon}>💧</Text>
+          <Text style={styles.tipText}>{dailyTips[0]}</Text>
+        </View>
+      </View>
+    );
+  };
+
+  // Component: Popular Content
+  const PopularContent = () => {
+    return (
+      <View style={styles.popularContainer}>
+        <Text style={styles.sectionTitle}>Populer Minggu Ini</Text>
+        {popularData.map(item => (
+          <View key={item.id} style={styles.popularItem}>
             <Text style={styles.popularTitle}>{item.title}</Text>
             <Text style={styles.popularViews}>{item.views} views</Text>
           </View>
-        )}
-      />
-    </View>
-  );
-};
+        ))}
+      </View>
+    );
+  };
 
-// Komponen Footer/Navigasi Bawah
-const BottomNavigation = () => {
-  return (
-    <View style={styles.bottomNavContainer}>
-      <Pressable style={styles.navButton}>
-        <Heart size={24} color={colors.grey()} />
-        <Text style={styles.navText}>Beranda</Text>
-      </Pressable>
-      <Pressable style={styles.navButton}>
-        <Profile size={24} color={colors.grey()} />
-        <Text style={styles.navText}>Kategori</Text>
-      </Pressable>
-      <Pressable style={styles.navButton}>
-        <Bookmark size={24} color={colors.grey()} />
-        <Text style={styles.navText}>Bookmark</Text>
-      </Pressable>
-      <Pressable style={styles.navButton}>
-        <Profile size={24} color={colors.grey()} />
-        <Text style={styles.navText}>Profil</Text>
-      </Pressable>
-    </View>
-  );
-};
+  // Component: Bottom Navigation
+  const BottomNavigation = () => {
+    return (
+      <View style={styles.bottomNavContainer}>
+        <Pressable 
+          style={activeTab === 'home' ? styles.activeNavButton : styles.navButton} 
+          onPress={() => handleTabPress('home')}
+        >
+          <Home
+            size={24} 
+            color={activeTab === 'home' ? colors.greenMint() : colors.grey()} 
+            variant={activeTab === 'home' ? 'Bold' : 'Linear'}
+          />
+          <Text style={[
+            styles.navText,
+            {color: activeTab === 'home' ? colors.greenMint() : colors.grey()}
+          ]}>Beranda</Text>
+        </Pressable>
+        <Pressable 
+          style={activeTab === 'categories' ? styles.activeNavButton : styles.navButton} 
+          onPress={() => handleTabPress('categories')}
+        >
+          <Layer 
+            size={24} 
+            color={activeTab === 'categories' ? colors.greenMint() : colors.grey()} 
+            variant={activeTab === 'categories' ? 'Bold' : 'Linear'}
+          />
+          <Text style={[
+            styles.navText,
+            {color: activeTab === 'categories' ? colors.greenMint() : colors.grey()}
+          ]}>Kategori</Text>
+        </Pressable>
+        <Pressable 
+          style={activeTab === 'bookmarks' ? styles.activeNavButton : styles.navButton} 
+          onPress={() => handleTabPress('bookmarks')}
+        >
+          <Bookmark 
+            size={24} 
+            color={activeTab === 'bookmarks' ? colors.greenMint() : colors.grey()} 
+            variant={activeTab === 'bookmarks' ? 'Bold' : 'Linear'}
+          />
+          <Text style={[
+            styles.navText,
+            {color: activeTab === 'bookmarks' ? colors.greenMint() : colors.grey()}
+          ]}>Bookmark</Text>
+        </Pressable>
+        <Pressable 
+          style={activeTab === 'profile' ? styles.activeNavButton : styles.navButton} 
+          onPress={() => handleTabPress('profile')}
+        >
+          <Profile 
+            size={24} 
+            color={activeTab === 'profile' ? colors.greenMint() : colors.grey()} 
+            variant={activeTab === 'profile' ? 'Bold' : 'Linear'}
+          />
+          <Text style={[
+            styles.navText,
+            {color: activeTab === 'profile' ? colors.greenMint() : colors.grey()}
+          ]}>Profil</Text>
+        </Pressable>
+      </View>
+    );
+  };
 
-// Komponen Utama
-export default function App() {
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -166,29 +224,28 @@ export default function App() {
       </View>
 
       {/* Search Bar */}
-      <View style={searchBar.container}>
-        <TextInput style={searchBar.input} placeholder="Search" />
-        <Pressable style={searchBar.button}>
+      <View style={styles.searchContainer}>
+        <TextInput 
+          style={styles.searchInput} 
+          placeholder="Search" 
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onSubmitEditing={handleSearch}
+        />
+        <Pressable style={styles.searchButton} onPress={handleSearch}>
           <SearchNormal size={20} color={colors.white()} />
         </Pressable>
       </View>
 
-      {/* Banner/Carousel */}
-      <BannerCarousel />
+      {/* Main Content */}
+      <ScrollView>
+        <BannerCarousel />
+        <CategoryGrid />
+        <RecommendedContent />
+        <DailyTip />
+        <PopularContent />
+      </ScrollView>
 
-      {/* Kategori Konten */}
-      <CategoryGrid />
-
-      {/* Konten Rekomendasi Harian */}
-      <RecommendedContent />
-
-      {/* Tips Kesehatan Harian */}
-      <DailyTip />
-
-      {/* Konten Populer */}
-      <PopularContent />
-
-      {/* Footer/Navigasi Bawah */}
       <BottomNavigation />
     </View>
   );
@@ -215,6 +272,29 @@ const styles = StyleSheet.create({
     fontFamily: fontType['Pop-Regular'],
     color: colors.grey(),
   },
+  searchContainer: {
+    marginHorizontal: 24,
+    backgroundColor: colors.grey(0.03),
+    borderColor: colors.grey(0.2),
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  searchInput: {
+    height: 40,
+    padding: 10,
+    width: '90%',
+  },
+  searchButton: {
+    backgroundColor: colors.greenMint(),
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 40,
+    width: 40,
+    borderTopRightRadius: 10,
+    borderBottomRightRadius: 10,
+  },
   bannerContainer: {
     marginTop: 10,
     paddingHorizontal: 24,
@@ -236,11 +316,14 @@ const styles = StyleSheet.create({
   categoryContainer: {
     paddingHorizontal: 24,
     paddingVertical: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   categoryItem: {
-    flex: 1,
+    width: '30%', // 3 kolom
     alignItems: 'center',
-    margin: 5,
+    marginBottom: 10,
     padding: 10,
     borderRadius: 10,
     backgroundColor: colors.greenMint(0.1),
@@ -262,39 +345,53 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: fontType['Pop-SemiBold'],
     color: colors.grey(),
-    marginBottom: 10,
+    marginBottom: 5,
+  },
+  recommendedList: {
+    marginTop: 10,
   },
   recommendedCard: {
-    width: 200,
-    marginRight: 10,
+    width: '100%',
+    marginBottom: 20,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: colors.white(),
+    elevation: 3,
+    shadowColor: colors.grey(),
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   recommendedImage: {
     width: '100%',
-    height: 120,
-    borderRadius: 10,
+    aspectRatio: 16/9, // Menjaga aspect ratio gambar
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+  },
+  bookmarkButton: {
+    backgroundColor: colors.grey(0.1),
+    borderRadius: 20,
+    padding: 5,
+    margin: 10,
+  },
+  articleContent: {
+    padding: 10,
   },
   recommendedTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: fontType['Pjs-SemiBold'],
     color: colors.grey(),
-    marginTop: 5,
+    marginBottom: 5,
   },
   recommendedDuration: {
     fontSize: 12,
     fontFamily: fontType['Pjs-Medium'],
     color: colors.grey(0.6),
   },
-  readMoreButton: {
-    marginTop: 5,
-    padding: 5,
-    backgroundColor: colors.greenMint(),
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  readMoreText: {
-    fontSize: 12,
-    fontFamily: fontType['Pjs-Medium'],
-    color: colors.white(),
+  articleActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 8,
   },
   tipContainer: {
     marginTop: 20,
@@ -315,10 +412,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontType['Pjs-Medium'],
     color: colors.grey(),
+    flex: 1,
   },
   popularContainer: {
     marginTop: 20,
     paddingHorizontal: 24,
+    marginBottom: 80,
   },
   popularItem: {
     flexDirection: 'row',
@@ -332,11 +431,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fontType['Pjs-SemiBold'],
     color: colors.grey(),
+    flex: 1,
   },
   popularViews: {
     fontSize: 12,
     fontFamily: fontType['Pjs-Medium'],
     color: colors.grey(0.6),
+    marginLeft: 10,
   },
   bottomNavContainer: {
     flexDirection: 'row',
@@ -345,40 +446,25 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: colors.grey(0.1),
-    backgroundColor: colors.greenMint(),
+    backgroundColor: colors.white(),
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   navButton: {
     alignItems: 'center',
+    padding: 5,
+  },
+  activeNavButton: {
+    alignItems: 'center',
+    padding: 5,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.greenMint(),
   },
   navText: {
     fontSize: 12,
     fontFamily: fontType['Pjs-Medium'],
-    color: colors.grey(),
     marginTop: 5,
-  },
-});
-
-const searchBar = StyleSheet.create({
-  container: {
-    marginHorizontal: 24,
-    backgroundColor: colors.grey(0.03),
-    borderColor: colors.grey(0.2),
-    borderRadius: 10,
-    borderWidth: 1,
-    flexDirection: 'row',
-  },
-  input: {
-    height: 40,
-    padding: 10,
-    width: '90%',
-  },
-  button: {
-    backgroundColor: colors.greenMint(),
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 40,
-    width: 40,
-    borderTopRightRadius: 10,
-    borderBottomRightRadius: 10,
   },
 });

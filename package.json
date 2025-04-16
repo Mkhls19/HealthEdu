@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@d11/react-native-fast-image": "^8.9.2",
     "iconsax-react-native": "^0.0.8",
     "react": "19.0.0",
     "react-native": "0.78.0",
