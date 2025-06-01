@@ -1,3 +1,4 @@
+// File: src/theme/fonts.jsx
 const fontType = {
     //PlusJakartaSans
     'Pjs-Bold': 'PlusJakartaSans-Bold',
