@@ -1,78 +1,78 @@
-import React, { useState, useRef, useCallback } from 'react'; // Ditambahkan useRef, useCallback
+// src/screens/FormArticle/index.jsx
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  TextInput,
+  TextInput, // Pastikan TextInput diimpor
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   Alert,
-  Animated, // Ditambahkan Animated
-  // Platform, // Jika menggunakan StatusBar.currentHeight
-  // StatusBar, // Jika menggunakan StatusBar.currentHeight
+  Animated,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
-// import {ArrowLeft} from 'iconsax-react-native'; // Nonaktifkan jika tidak ada tombol kembali di header
 import { useNavigation } from '@react-navigation/native';
 import { fontType, colors } from '../../theme';
-import { useFocusEffect } from '@react-navigation/native'; // Ditambahkan useFocusEffect
+import { useFocusEffect } from '@react-navigation/native';
+import { createArticle } from '../../services/api';
 
 const ArticleForm = () => {
   const navigation = useNavigation();
   const [articleData, setArticleData] = useState({
     title: '',
     content: '',
-    category: 'Kesehatan Umum', // Contoh kategori default
+    category: '', // Kategori sekarang string kosong, diisi manual oleh user
   });
-
-  const fadeAnim = useRef(new Animated.Value(0)).current; // Inisialisasi Animated.Value [cite: 11, 13, 15]
+  const [loading, setLoading] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
     useCallback(() => {
-      fadeAnim.setValue(0); // Reset animasi
+      fadeAnim.setValue(0);
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 500,
-        useNativeDriver: true, // [cite: 7, 9]
-      }).start(); // Mulai animasi [cite: 15]
-
-      return () => {
-        // Opsional: Logika cleanup
-      };
+        useNativeDriver: true,
+      }).start();
+      return () => {};
     }, [fadeAnim])
   );
 
   const handleChange = (key, value) => {
-    setArticleData({
-      ...articleData,
+    setArticleData(prevData => ({
+      ...prevData,
       [key]: value,
-    });
+    }));
   };
 
-  const handleUpload = () => {
-    if (!articleData.title || !articleData.content) {
-      Alert.alert(
-        'Input Tidak Lengkap',
-        'Judul dan Konten artikel tidak boleh kosong.',
-      );
+  const handleUpload = async () => {
+    // Validasi tetap ada untuk kategori, memastikan tidak kosong
+    if (!articleData.title || !articleData.content || !articleData.category) {
+      Alert.alert('Input Tidak Lengkap', 'Judul, Kategori, dan Konten artikel tidak boleh kosong.');
       return;
     }
-    console.log('Data Artikel:', articleData);
-    Alert.alert(
-      'Artikel Ditambahkan',
-      `Judul: ${articleData.title}\nKonten: ${articleData.content.substring(0,100)}...`,
-    );
-    navigation.goBack(); // Kembali ke layar sebelumnya
+    setLoading(true);
+    try {
+      const payload = {
+        title: articleData.title,
+        content: articleData.content,
+        category: articleData.category, // Kategori diambil dari input teks
+      };
+      const response = await createArticle(payload);
+      Alert.alert('Sukses', `Artikel "${response.title}" berhasil ditambahkan!`);
+      navigation.goBack();
+    } catch (error) {
+      console.error("Error uploading article:", error);
+      Alert.alert('Error', `Terjadi kesalahan saat mengupload artikel: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    // Bungkus dengan Animated.View dan terapkan opacity [cite: 10, 15]
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <View style={styles.header}>
-        {/* Jika Anda membutuhkan tombol kembali:
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <ArrowLeft size={24} color={colors.black()} />
-        </TouchableOpacity> 
-        */}
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Tambah Artikel Baru</Text>
         </View>
@@ -92,6 +92,18 @@ const ArticleForm = () => {
           />
         </View>
 
+        {/* Field Kategori diubah menjadi TextInput biasa */}
+        <View style={textInputStyles.container}>
+          <Text style={textInputStyles.label}>Kategori Artikel</Text>
+          <TextInput
+            placeholder="Contoh: Kesehatan, Nutrisi, Olahraga"
+            value={articleData.category}
+            onChangeText={text => handleChange('category', text)} // value di-state sebagai articleData.category
+            placeholderTextColor={colors.grey(0.6)}
+            style={textInputStyles.input} // Menggunakan style input yang sama
+          />
+        </View>
+
         <View style={textInputStyles.container}>
           <Text style={textInputStyles.label}>Konten Artikel</Text>
           <TextInput
@@ -100,15 +112,20 @@ const ArticleForm = () => {
             onChangeText={text => handleChange('content', text)}
             placeholderTextColor={colors.grey(0.6)}
             multiline
-            numberOfLines={10} // Atur tinggi awal
+            numberOfLines={10}
             style={[textInputStyles.input, textInputStyles.textArea]}
           />
         </View>
-        {/* Anda bisa tambahkan input untuk kategori, gambar, dll. di sini */}
       </ScrollView>
 
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={colors.greenMint()} />
+        </View>
+      )}
+
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.button} onPress={handleUpload}>
+        <TouchableOpacity style={styles.button} onPress={handleUpload} disabled={loading}>
           <Text style={styles.buttonLabel}>Upload Artikel</Text>
         </TouchableOpacity>
       </View>
@@ -116,8 +133,8 @@ const ArticleForm = () => {
   );
 };
 
-export default ArticleForm;
-
+// Styles (styles, textInputStyles) tetap sama, pickerStyles bisa dihapus jika tidak digunakan lagi.
+// Pastikan styles.loadingOverlay sudah ada.
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -128,24 +145,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 52,
-    // paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 8, // Jika ingin header di bawah status bar
-    paddingTop: 8, // Sesuaikan jika tidak memperhitungkan status bar secara eksplisit
+    paddingTop: Platform.OS === 'ios' ? 8 : 12,
     paddingBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.lightGrey(),
   },
-  // backButton: { // Aktifkan jika menggunakan tombol kembali
-  //   position: 'absolute',
-  //   left: 24, // Atau padding horizontal header
-  //   top: 0, // Sesuaikan dengan paddingTop header
-  //   bottom: 0, // Sesuaikan dengan paddingBottom header
-  //   justifyContent: 'center',
-  //   zIndex: 1, // Agar di atas elemen lain jika ada overlap
-  // },
   headerTitleContainer: {
     flex: 1,
     alignItems: 'center',
-    // marginLeft: -24, // Hapus atau sesuaikan jika tidak ada tombol kembali fisik di kiri
   },
   headerTitle: {
     fontFamily: fontType['Pjs-Bold'],
@@ -155,12 +162,12 @@ const styles = StyleSheet.create({
   scrollContainer: {
     paddingHorizontal: 24,
     paddingVertical: 20,
-    gap: 15, // Jarak antar elemen form
+    gap: 20,
   },
   bottomBar: {
     backgroundColor: colors.white(),
     paddingHorizontal: 24,
-    paddingVertical: 15, // Padding atas bawah untuk tombol
+    paddingVertical: 15,
     borderTopWidth: 1,
     borderTopColor: colors.lightGrey(),
     alignItems: 'center',
@@ -172,12 +179,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    width: '100%', // Agar tombol memenuhi lebar bottomBar jika diinginkan
+    width: '100%',
   },
   buttonLabel: {
     fontSize: 16,
     fontFamily: fontType['Pjs-SemiBold'],
     color: colors.white(),
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
 });
 
@@ -196,7 +210,7 @@ const textInputStyles = StyleSheet.create({
     borderColor: colors.lightGrey(0.5),
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     fontSize: 14,
     fontFamily: fontType['Pjs-Regular'],
     color: colors.black(),
@@ -204,6 +218,8 @@ const textInputStyles = StyleSheet.create({
   },
   textArea: {
     minHeight: 150,
-    textAlignVertical: 'top', // Agar teks di area multi-baris mulai dari atas
+    textAlignVertical: 'top',
   },
 });
+
+export default ArticleForm;

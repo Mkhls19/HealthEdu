@@ -1,50 +1,127 @@
-import React, { useRef, useCallback } from 'react'; // Ditambahkan useRef, useCallback
-import { View, Text, StyleSheet, ScrollView, Animated } from 'react-native'; // Ditambahkan Animated
+// src/screens/Bookmark/index.jsx
+import React, { useRef, useCallback, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Animated,
+  ActivityIndicator,
+  RefreshControl,
+  Pressable,
+  Alert,
+  Platform, // Ditambahkan untuk Platform.OS
+} from 'react-native';
 import { colors, fontType } from '../../theme';
-import { useFocusEffect } from '@react-navigation/native'; // Ditambahkan useFocusEffect
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { getBookmarkedArticles } from '../../services/api';
 
-const Bookmark = () => {
-  const bookmarkedArticles = [
-    { id: 1, title: '5 Manfaat Olahraga Pagi', category: 'Olahraga dan Kebugaran' },
-    { id: 2, title: 'Cara Mengatasi Stres', category: 'Kesehatan Mental' },
-    { id: 3, title: '10 Makanan Sehat untuk Jantung', category: 'Nutrisi dan Diet' },
-  ];
+// Fungsi format tanggal sederhana
+const formatDate = (isoString) => {
+  if (!isoString) return 'Tanggal tidak tersedia';
+  try {
+    const date = new Date(isoString);
+    return date.toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return 'Format tanggal salah';
+  }
+};
 
-  const fadeAnim = useRef(new Animated.Value(0)).current; // Inisialisasi Animated.Value [cite: 11, 13, 15]
+const BookmarkScreen = () => {
+  const navigation = useNavigation();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [bookmarkedArticles, setBookmarkedArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchBookmarkedArticles = async () => {
+    try {
+      const data = await getBookmarkedArticles();
+      const sortedData = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setBookmarkedArticles(sortedData);
+    } catch (error) {
+      console.error("Error fetching bookmarked articles:", error);
+      Alert.alert('Error', 'Gagal memuat artikel yang disimpan.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
-      fadeAnim.setValue(0); // Reset animasi
+      setLoading(true);
+      fetchBookmarkedArticles();
+
+      fadeAnim.setValue(0);
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 500,
-        useNativeDriver: true, // [cite: 7, 9]
-      }).start(); // Mulai animasi [cite: 15]
+        useNativeDriver: true,
+      }).start();
 
       return () => {
-        // Opsional: Logika cleanup jika diperlukan
+        // Opsional cleanup
       };
-    }, [fadeAnim])
+    }, [])
   );
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchBookmarkedArticles();
+  }, []);
+
+  const renderBookmarkItem = (item) => (
+    <Pressable
+      key={item.id}
+      style={styles.bookmarkItem}
+      onPress={() => {
+        // --- PERBAIKAN NAVIGASI DI SINI ---
+        navigation.navigate('ArtikelTab', { // 1. Targetkan NAMA TAB (dari App.jsx)
+          screen: 'ArtikelDetail',         // 2. Targetkan NAMA SCREEN di dalam stack tersebut
+          params: { articleId: item.id },  // 3. Kirim parameter yang dibutuhkan
+        });
+      }}
+    >
+      <Text style={styles.bookmarkTitle} numberOfLines={2}>{item.title}</Text>
+      <Text style={styles.bookmarkCategory}>Kategori: {item.category}</Text>
+      {item.createdAt && <Text style={styles.bookmarkDate}>{formatDate(item.createdAt)}</Text>}
+    </Pressable>
+  );
+
+  if (loading && bookmarkedArticles.length === 0) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={colors.greenMint()} />
+      </View>
+    );
+  }
+
   return (
-    // Bungkus dengan Animated.View dan terapkan opacity [cite: 10, 15]
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Artikel Tersimpan</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.greenMint()]} />
+        }
+      >
         {bookmarkedArticles.length > 0 ? (
-          bookmarkedArticles.map(item => (
-            <View key={item.id} style={styles.bookmarkItem}>
-              <Text style={styles.bookmarkTitle}>{item.title}</Text>
-              <Text style={styles.bookmarkCategory}>{item.category}</Text>
-            </View>
-          ))
+          bookmarkedArticles.map(item => renderBookmarkItem(item))
         ) : (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Belum ada artikel yang disimpan.</Text>
-          </View>
+          !loading && (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Belum ada artikel yang Anda simpan.</Text>
+            </View>
+          )
         )}
       </ScrollView>
     </Animated.View>
@@ -56,6 +133,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white(),
   },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   header: {
     backgroundColor: colors.white(),
     paddingHorizontal: 20,
@@ -63,22 +145,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.lightGrey(),
     alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 40 : 20,
   },
   headerTitle: {
     fontSize: 20,
     fontFamily: fontType['Pop-Bold'],
     color: colors.black(),
-    marginTop:30, // Sesuaikan dengan kebutuhan UI Anda
   },
   scrollContainer: {
     padding: 20,
-    flexGrow: 1, // Penting agar emptyContainer bisa di tengah
+    flexGrow: 1,
   },
   bookmarkItem: {
-    backgroundColor: colors.extraLightGrey(),
+    backgroundColor: colors.extraLightGrey(0.5),
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
+    borderWidth: 1,
+    borderColor: colors.lightGrey(),
   },
   bookmarkTitle: {
     fontSize: 16,
@@ -87,21 +171,28 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   bookmarkCategory: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fontType['Pjs-Regular'],
     color: colors.grey(),
+    marginBottom: 3,
+  },
+  bookmarkDate: {
+    fontSize: 12,
+    fontFamily: fontType['Pjs-Light'],
+    color: colors.grey(0.8),
   },
   emptyContainer: {
-    flex: 1, // Memastikan mengambil sisa ruang jika scrollContainer memiliki flexGrow:1
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    // marginTop: 50, // Bisa dihapus atau disesuaikan jika flex:1 sudah cukup
+    padding: 20,
   },
   emptyText: {
     fontSize: 16,
     fontFamily: fontType['Pjs-Medium'],
     color: colors.grey(),
+    textAlign: 'center',
   },
 });
 
-export default Bookmark;
+export default BookmarkScreen;
