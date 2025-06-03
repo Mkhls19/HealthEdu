@@ -1,17 +1,35 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { colors, fontType } from '../../theme'; //
+import React, { useRef, useCallback } from 'react'; // Ditambahkan useRef, useCallback
+import { View, Text, StyleSheet, ScrollView, Animated } from 'react-native'; // Ditambahkan Animated
+import { colors, fontType } from '../../theme';
+import { useFocusEffect } from '@react-navigation/native'; // Ditambahkan useFocusEffect
 
 const Bookmark = () => {
-  // Data dummy untuk artikel yang di-bookmark (bisa diganti dengan data dari state atau API)
   const bookmarkedArticles = [
-    { id: 1, title: '5 Manfaat Olahraga Pagi', category: 'Olahraga dan Kebugaran' }, //
-    { id: 2, title: 'Cara Mengatasi Stres', category: 'Kesehatan Mental' }, //
-    { id: 3, title: '10 Makanan Sehat untuk Jantung', category: 'Nutrisi dan Diet' }, //
+    { id: 1, title: '5 Manfaat Olahraga Pagi', category: 'Olahraga dan Kebugaran' },
+    { id: 2, title: 'Cara Mengatasi Stres', category: 'Kesehatan Mental' },
+    { id: 3, title: '10 Makanan Sehat untuk Jantung', category: 'Nutrisi dan Diet' },
   ];
 
+  const fadeAnim = useRef(new Animated.Value(0)).current; // Inisialisasi Animated.Value [cite: 11, 13, 15]
+
+  useFocusEffect(
+    useCallback(() => {
+      fadeAnim.setValue(0); // Reset animasi
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true, // [cite: 7, 9]
+      }).start(); // Mulai animasi [cite: 15]
+
+      return () => {
+        // Opsional: Logika cleanup jika diperlukan
+      };
+    }, [fadeAnim])
+  );
+
   return (
-    <View style={styles.container}>
+    // Bungkus dengan Animated.View dan terapkan opacity [cite: 10, 15]
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Artikel Tersimpan</Text>
       </View>
@@ -29,59 +47,60 @@ const Bookmark = () => {
           </View>
         )}
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white(), //
+    backgroundColor: colors.white(),
   },
   header: {
-    backgroundColor: colors.white(), //
+    backgroundColor: colors.white(),
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.lightGrey(), //
-    alignItems: 'center', // Pusatkan judul header
+    borderBottomColor: colors.lightGrey(),
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,
-    fontFamily: fontType['Pop-Bold'], //
-    color: colors.black(), //
-    marginTop:30, // Sesuaikan dengan HomeScreen jika diperlukan
+    fontFamily: fontType['Pop-Bold'],
+    color: colors.black(),
+    marginTop:30, // Sesuaikan dengan kebutuhan UI Anda
   },
   scrollContainer: {
     padding: 20,
+    flexGrow: 1, // Penting agar emptyContainer bisa di tengah
   },
   bookmarkItem: {
-    backgroundColor: colors.extraLightGrey(), //
+    backgroundColor: colors.extraLightGrey(),
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
   },
   bookmarkTitle: {
     fontSize: 16,
-    fontFamily: fontType['Pjs-SemiBold'], //
-    color: colors.black(), //
+    fontFamily: fontType['Pjs-SemiBold'],
+    color: colors.black(),
     marginBottom: 5,
   },
   bookmarkCategory: {
     fontSize: 12,
-    fontFamily: fontType['Pjs-Regular'], //
-    color: colors.grey(), //
+    fontFamily: fontType['Pjs-Regular'],
+    color: colors.grey(),
   },
   emptyContainer: {
-    flex: 1,
+    flex: 1, // Memastikan mengambil sisa ruang jika scrollContainer memiliki flexGrow:1
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 50,
+    // marginTop: 50, // Bisa dihapus atau disesuaikan jika flex:1 sudah cukup
   },
   emptyText: {
     fontSize: 16,
-    fontFamily: fontType['Pjs-Medium'], //
-    color: colors.grey(), //
+    fontFamily: fontType['Pjs-Medium'],
+    color: colors.grey(),
   },
 });
 

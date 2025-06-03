@@ -1,12 +1,34 @@
-import React, { useState } from 'react';
-import {ScrollView,StyleSheet,Text,View,Image,ImageBackground,TextInput,Pressable,FlatList,Alert,} from 'react-native';
+import React, { useState, useRef, useCallback } from 'react'; // Ditambahkan useRef, useCallback
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Image,
+  ImageBackground,
+  TextInput,
+  Pressable,
+  FlatList,
+  Alert,
+  Animated, // Ditambahkan Animated
+  Platform, // Sudah ada
+} from 'react-native';
 import { SearchNormal, Notification } from 'iconsax-react-native';
-import { fontType, colors } from '../../theme'; 
+import { fontType, colors } from '../../theme';
+import { useFocusEffect } from '@react-navigation/native'; // Ditambahkan useFocusEffect
+
+// Data (bannerData, categories, recommendedData, popularData) tetap sama seperti di file Anda
+// Komponen internal (SectionHeader, BannerCarousel, CategoryGrid, dll.) juga tetap sama
+
+// --- AMBIL DATA DARI src/data.jsx JIKA PERLU ---
+// import { bannerData, categories, recommendedData, popularData, dailyTips } from '../../data';
+// Jika Anda memindahkan data ke src/data.jsx, pastikan path image require() disesuaikan atau data gambar dikelola berbeda.
+// Untuk contoh ini, saya asumsikan data masih didefinisikan lokal di HomeScreen atau diimpor dengan benar.
 
 const bannerData = [
-  { id: 1, image: require('../../assets/images/banner1.jpg'), title: 'Tips Jaga Kesehatan Mental' }, // Tambahkan title jika ingin ditampilkan
-  { id: 2, image: require('../../assets/images/banner1.jpg'), title: 'Manfaat Tidur Cukup' },
-  { id: 3, image: require('../../assets/images/banner1.jpg'), title: 'Olahraga Rutin Setiap Hari' },
+  { id: 1, image: require('../../assets/images/banner1.jpg'), title: 'Tips Jaga Kesehatan Mental' },
+  { id: 2, image: require('../../assets/images/banner1.jpg'), title: 'Manfaat Tidur Cukup' }, // Pastikan path gambar benar
+  { id: 3, image: require('../../assets/images/banner1.jpg'), title: 'Olahraga Rutin Setiap Hari' },// Pastikan path gambar benar
 ];
 
 const categories = [
@@ -19,9 +41,9 @@ const categories = [
 ];
 
 const recommendedData = [
-  { id: 1, image: require('../../assets/images/article1.jpg'), title: '5 Manfaat Olahraga Pagi', duration: 'Baca 5 menit' },
-  { id: 2, image: require('../../assets/images/article1.jpg'), title: 'Diet Sehat untuk Pemula', duration: 'Baca 7 menit' },
-  { id: 3, image: require('../../assets/images/article1.jpg'), title: 'Cara Mengatasi Stres', duration: 'Baca 6 menit' },
+  { id: 1, image: require('../../assets/images/article1.jpg'), title: '5 Manfaat Olahraga Pagi', duration: 'Baca 5 menit' }, // Pastikan path gambar benar
+  { id: 2, image: require('../../assets/images/article1.jpg'), title: 'Diet Sehat untuk Pemula', duration: 'Baca 7 menit' }, // Pastikan path gambar benar
+  { id: 3, image: require('../../assets/images/article1.jpg'), title: 'Cara Mengatasi Stres', duration: 'Baca 6 menit' }, // Pastikan path gambar benar
 ];
 
 const popularData = [
@@ -30,7 +52,6 @@ const popularData = [
   { id: 3, title: 'Cara Menjaga Kesehatan Mata', views: '1.5k' },
 ];
 
-// Komponen Internal HomeScreen
 const SectionHeader = ({ title }) => {
   return <Text style={styles.sectionTitle}>{title}</Text>;
 };
@@ -63,7 +84,7 @@ const CategoryGrid = () => {
             <Text style={styles.categoryName} numberOfLines={2}>{item.name}</Text>
           </Pressable>
         )}
-        scrollEnabled={false} // Tambahkan ini jika tidak ingin FlatList di dalam ScrollView ikut scroll
+        scrollEnabled={false}
       />
     </View>
   );
@@ -113,14 +134,34 @@ const PopularContent = () => {
             <Text style={styles.popularViews}>{item.views} views</Text>
           </Pressable>
         )}
-        scrollEnabled={false} // Tambahkan ini jika tidak ingin FlatList di dalam ScrollView ikut scroll
+        scrollEnabled={false}
       />
     </View>
   );
 };
 
+
 const HomeScreen = () => {
   const [searchText, setSearchText] = useState('');
+  const fadeAnim = useRef(new Animated.Value(0)).current; // Inisialisasi Animated.Value [cite: 11, 13, 15]
+
+  useFocusEffect(
+    useCallback(() => {
+      // Setel ulang animasi ke 0 setiap kali layar fokus
+      fadeAnim.setValue(0);
+      // Mulai animasi timing
+      Animated.timing(fadeAnim, {
+        toValue: 1, // Animasikan ke opacity 1
+        duration: 500, // Durasi animasi 500ms
+        useNativeDriver: true, // Gunakan native driver untuk performa lebih baik [cite: 7, 9]
+      }).start(); // Mulai animasi [cite: 15]
+
+      return () => {
+        // Opsional: Aksi cleanup jika layar tidak fokus lagi
+        // fadeAnim.setValue(0); // Misalnya, reset opacity saat meninggalkan layar
+      };
+    }, [fadeAnim]) // Dependency array
+  );
 
   const handleSearch = () => {
     if (searchText.trim() === '') {
@@ -131,7 +172,8 @@ const HomeScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    // Bungkus konten utama dengan Animated.View dan terapkan opacity [cite: 10, 15]
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>HealthEdu</Text>
         <Pressable onPress={() => Alert.alert("Notifikasi", "Belum ada notifikasi baru.")}>
@@ -169,14 +211,14 @@ const HomeScreen = () => {
           </View>
         )}
       </ScrollView>
-      {/* BottomNavigation tidak lagi dirender di sini */}
-    </View>
+    </Animated.View>
   );
 };
 
 export default HomeScreen;
 
-// Styles (styles dan searchBarStyles tetap di sini karena spesifik untuk HomeScreen)
+// Styles (styles dan searchBarStyles) tetap sama seperti di file Anda
+// Pastikan styles.container memiliki flex: 1 dan backgroundColor
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -184,13 +226,13 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 12, // Disesuaikan agar tidak terlalu mepet jika ada status bar
-    paddingBottom: 8, // Disesuaikan
+    paddingTop: 12,
+    paddingBottom: 8,
     justifyContent: 'space-between',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.white(),
-    marginTop: Platform.OS === 'ios' ? 30 : 10, // Margin atas untuk status bar
+    marginTop: Platform.OS === 'ios' ? 30 : 10,
   },
   headerTitle: {
     fontSize: 22,
@@ -198,20 +240,20 @@ const styles = StyleSheet.create({
     color: colors.black(),
   },
   scrollContainer: {
-    paddingBottom: 20, // Padding agar konten tidak tertutup bottom nav jika ada
+    paddingBottom: 20,
   },
   bannerContainer: {
     marginTop: 5,
   },
   bannerImage: {
-    width: 320, // Sesuaikan dengan lebar layar atau buat dinamis
+    width: 320,
     height: 160,
     borderRadius: 12,
     marginHorizontal: 20,
     overflow: 'hidden',
-    justifyContent: 'flex-end', // Untuk posisi teks banner
+    justifyContent: 'flex-end',
   },
-   bannerOverlay: { // Tambahkan overlay agar teks lebih terbaca
+   bannerOverlay: {
     backgroundColor: 'rgba(0,0,0,0.3)',
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -234,7 +276,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     borderRadius: 10,
     backgroundColor: colors.greenMint(0.2),
-    minHeight: 100, // Pastikan tinggi cukup untuk 2 baris teks
+    minHeight: 100,
   },
   categoryIcon: {
     fontSize: 30,
@@ -254,10 +296,9 @@ const styles = StyleSheet.create({
   },
   recommendedContainer: {
     marginTop: 15,
-    // paddingHorizontal: 20, // Dihapus karena contentContainerStyle sudah ada
   },
   horizontalScrollContent: {
-    paddingHorizontal: 20, // Tetap di sini untuk padding card pertama dan terakhir
+    paddingHorizontal: 20,
     paddingVertical: 5,
   },
   recommendedCard: {
@@ -344,7 +385,7 @@ const styles = StyleSheet.create({
   },
   searchResultsContainer: {
     flex: 1,
-    minHeight: 200, // Beri tinggi minimum agar terlihat saat ada hasil pencarian
+    minHeight: 200,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -360,13 +401,13 @@ const styles = StyleSheet.create({
 const searchBarStyles = StyleSheet.create({
   container: {
     marginHorizontal: 20,
-    marginBottom: 15, // Sedikit dikurangi dari 20
-    marginTop: 10, // Tambah margin atas
+    marginBottom: 15,
+    marginTop: 10,
     backgroundColor: colors.extraLightGrey(),
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 5, // Padding untuk icon search di kiri jika ada
+    paddingHorizontal: 5,
   },
   input: {
     flex: 1,

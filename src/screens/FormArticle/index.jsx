@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState, useRef, useCallback } from 'react'; // Ditambahkan useRef, useCallback
 import {
   View,
   Text,
@@ -7,10 +7,14 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Animated, // Ditambahkan Animated
+  // Platform, // Jika menggunakan StatusBar.currentHeight
+  // StatusBar, // Jika menggunakan StatusBar.currentHeight
 } from 'react-native';
-import {ArrowLeft} from 'iconsax-react-native';
-import {useNavigation} from '@react-navigation/native';
-import {fontType, colors} from '../../theme';
+// import {ArrowLeft} from 'iconsax-react-native'; // Nonaktifkan jika tidak ada tombol kembali di header
+import { useNavigation } from '@react-navigation/native';
+import { fontType, colors } from '../../theme';
+import { useFocusEffect } from '@react-navigation/native'; // Ditambahkan useFocusEffect
 
 const ArticleForm = () => {
   const navigation = useNavigation();
@@ -20,6 +24,23 @@ const ArticleForm = () => {
     category: 'Kesehatan Umum', // Contoh kategori default
   });
 
+  const fadeAnim = useRef(new Animated.Value(0)).current; // Inisialisasi Animated.Value [cite: 11, 13, 15]
+
+  useFocusEffect(
+    useCallback(() => {
+      fadeAnim.setValue(0); // Reset animasi
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true, // [cite: 7, 9]
+      }).start(); // Mulai animasi [cite: 15]
+
+      return () => {
+        // Opsional: Logika cleanup
+      };
+    }, [fadeAnim])
+  );
+
   const handleChange = (key, value) => {
     setArticleData({
       ...articleData,
@@ -28,7 +49,6 @@ const ArticleForm = () => {
   };
 
   const handleUpload = () => {
-    // Di sini logika untuk mengirim data artikel (misalnya ke API atau state global)
     if (!articleData.title || !articleData.content) {
       Alert.alert(
         'Input Tidak Lengkap',
@@ -39,18 +59,20 @@ const ArticleForm = () => {
     console.log('Data Artikel:', articleData);
     Alert.alert(
       'Artikel Ditambahkan',
-      `Judul: ${articleData.title}\nKonten: ${articleData.content.substring(
-        0,
-        100,
-      )}...`,
+      `Judul: ${articleData.title}\nKonten: ${articleData.content.substring(0,100)}...`,
     );
-    // Kembali ke layar sebelumnya atau ke Home setelah upload
-    navigation.goBack();
+    navigation.goBack(); // Kembali ke layar sebelumnya
   };
 
   return (
-    <View style={styles.container}>
+    // Bungkus dengan Animated.View dan terapkan opacity [cite: 10, 15]
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <View style={styles.header}>
+        {/* Jika Anda membutuhkan tombol kembali:
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <ArrowLeft size={24} color={colors.black()} />
+        </TouchableOpacity> 
+        */}
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Tambah Artikel Baru</Text>
         </View>
@@ -82,8 +104,7 @@ const ArticleForm = () => {
             style={[textInputStyles.input, textInputStyles.textArea]}
           />
         </View>
-
-        {/* Kamu bisa tambahkan input untuk kategori, gambar, dll. di sini */}
+        {/* Anda bisa tambahkan input untuk kategori, gambar, dll. di sini */}
       </ScrollView>
 
       <View style={styles.bottomBar}>
@@ -91,7 +112,7 @@ const ArticleForm = () => {
           <Text style={styles.buttonLabel}>Upload Artikel</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -107,15 +128,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 52,
-    paddingTop: 8,
+    // paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 8, // Jika ingin header di bawah status bar
+    paddingTop: 8, // Sesuaikan jika tidak memperhitungkan status bar secara eksplisit
     paddingBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.lightGrey(),
   },
+  // backButton: { // Aktifkan jika menggunakan tombol kembali
+  //   position: 'absolute',
+  //   left: 24, // Atau padding horizontal header
+  //   top: 0, // Sesuaikan dengan paddingTop header
+  //   bottom: 0, // Sesuaikan dengan paddingBottom header
+  //   justifyContent: 'center',
+  //   zIndex: 1, // Agar di atas elemen lain jika ada overlap
+  // },
   headerTitleContainer: {
     flex: 1,
-    alignItems: 'center', // Memastikan judul ada di tengah sisa ruang
-    marginLeft: -24, // Kompensasi tombol back agar judul benar-benar di tengah layar
+    alignItems: 'center',
+    // marginLeft: -24, // Hapus atau sesuaikan jika tidak ada tombol kembali fisik di kiri
   },
   headerTitle: {
     fontFamily: fontType['Pjs-Bold'],
@@ -125,23 +155,24 @@ const styles = StyleSheet.create({
   scrollContainer: {
     paddingHorizontal: 24,
     paddingVertical: 20,
-    gap: 15,
+    gap: 15, // Jarak antar elemen form
   },
   bottomBar: {
     backgroundColor: colors.white(),
     paddingHorizontal: 24,
-    paddingVertical: 15,
+    paddingVertical: 15, // Padding atas bawah untuk tombol
     borderTopWidth: 1,
     borderTopColor: colors.lightGrey(),
-    alignItems: 'center', // Tombol upload di tengah
+    alignItems: 'center',
   },
   button: {
     paddingHorizontal: 30,
     paddingVertical: 12,
-    backgroundColor: colors.greenMint(), // Warna tombol bisa disesuaikan
+    backgroundColor: colors.greenMint(),
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%', // Agar tombol memenuhi lebar bottomBar jika diinginkan
   },
   buttonLabel: {
     fontSize: 16,
@@ -172,7 +203,7 @@ const textInputStyles = StyleSheet.create({
     backgroundColor: colors.extraLightGrey(0.2),
   },
   textArea: {
-    minHeight: 150, // Tinggi minimum untuk area teks
-    textAlignVertical: 'top', // Mulai teks dari atas untuk Android
+    minHeight: 150,
+    textAlignVertical: 'top', // Agar teks di area multi-baris mulai dari atas
   },
 });
