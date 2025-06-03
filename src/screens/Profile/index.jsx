@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, Pressable, Alert, ScrollView } from 'react-native';
+<<<<<<< HEAD
 import { colors, fontType } from '../../theme'; //
 import { Edit, Setting2, Logout, MessageQuestion } from 'iconsax-react-native';
 
@@ -16,6 +17,27 @@ const Profile = () => {
     { id: 2, title: 'Pengaturan', icon: <Setting2 size="22" color={colors.grey()}/>, action: () => Alert.alert("Fitur", "Fitur Pengaturan akan segera hadir!") }, //
     { id: 3, title: 'Pusat Bantuan', icon: <MessageQuestion size="22" color={colors.grey()}/>, action: () => Alert.alert("Fitur", "Fitur Pusat Bantuan akan segera hadir!") }, //
     { id: 4, title: 'Keluar', icon: <Logout size="22" color={colors.orangeBright()}/>, action: () => Alert.alert("Konfirmasi", "Apakah Anda yakin ingin keluar?") , isDestructive: true}, //
+=======
+import { colors, fontType } from '../../theme';
+import { Edit, Setting2, Logout, MessageQuestion, AddSquare } from 'iconsax-react-native'; // Tambahkan AddSquare atau ikon lain
+import { useNavigation } from '@react-navigation/native'; // <<--- IMPORT INI
+
+const Profile = () => {
+  const navigation = useNavigation(); // <<--- GUNAKAN HOOK INI
+
+  const user = {
+    name: 'Pengguna HealthEdu',
+    email: 'pengguna@example.com',
+    profileImage: require('../../assets/images/article1.jpg'),
+  };
+
+  const menuItems = [
+    { id: 1, title: 'Edit Profil', icon: <Edit size="22" color={colors.grey()}/>, action: () => Alert.alert("Fitur", "Fitur Edit Profil akan segera hadir!") },
+    { id: 2, title: 'Tambah Artikel Baru', icon: <AddSquare size="22" color={colors.grey()}/>, action: () => navigation.navigate('FormArticle') },
+    { id: 3, title: 'Pengaturan', icon: <Setting2 size="22" color={colors.grey()}/>, action: () => Alert.alert("Fitur", "Fitur Pengaturan akan segera hadir!") },
+    { id: 4, title: 'Pusat Bantuan', icon: <MessageQuestion size="22" color={colors.grey()}/>, action: () => Alert.alert("Fitur", "Fitur Pusat Bantuan akan segera hadir!") },
+    { id: 5, title: 'Keluar', icon: <Logout size="22" color={colors.orangeBright()}/>, action: () => Alert.alert("Konfirmasi", "Apakah Anda yakin ingin keluar?") , isDestructive: true},
+>>>>>>> 802ae13 ([BAB 5] NAVIGATION)
   ];
 
   return (
