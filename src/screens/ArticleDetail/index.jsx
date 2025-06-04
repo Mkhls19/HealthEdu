@@ -10,26 +10,39 @@ import {
   TouchableOpacity,
   Animated,
   Platform,
-  TextInput, // Diperlukan untuk inline editing
+  TextInput,
 } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { colors, fontType } from '../../theme';
-import { getArticleById, updateArticle, deleteArticle } from '../../services/api';
+// Import fungsi Firebase
+import {
+  getArticleByIdFirebase,
+  updateArticleFirebase,
+  deleteArticleFirebase
+} from '../../services/firebase';
 import { ArrowLeft, Edit, Trash, Bookmark as BookmarkIcon, Heart, Send2, Check, CloseSquare } from 'iconsax-react-native';
 
 // Fungsi format tanggal
-const formatDate = (isoString) => {
-  if (!isoString) return 'Tanggal tidak tersedia';
+const formatDate = (timestamp) => {
+  if (!timestamp) return 'Tanggal tidak tersedia';
   try {
-    const date = new Date(isoString);
+    const date = timestamp.toDate(); // Konversi Firestore Timestamp ke Date
     return date.toLocaleDateString('id-ID', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
   } catch (error) {
-    console.error("Error formatting date:", error);
-    return 'Format tanggal salah';
+    // Fallback jika bukan Firestore Timestamp (misalnya sudah string atau Date object)
+    try {
+        const date = new Date(timestamp);
+         return date.toLocaleDateString('id-ID', {
+            year: 'numeric', month: 'long', day: 'numeric'
+        });
+    } catch (e) {
+        console.error("Error formatting date:", error, e);
+        return 'Format tanggal salah';
+    }
   }
 };
 
@@ -39,9 +52,9 @@ const ArtikelDetailScreen = () => {
   const { articleId } = route.params;
 
   const [article, setArticle] = useState(null);
-  const [loading, setLoading] = useState(true); // Loading untuk fetch awal dan operasi utama (delete)
+  const [loading, setLoading] = useState(true);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [bookmarkLoading, setBookmarkLoading] = useState(false); // Loading khusus untuk aksi bookmark
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editableArticleData, setEditableArticleData] = useState({
@@ -54,28 +67,27 @@ const ArtikelDetailScreen = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const fetchArticleDetail = async (showLoadingIndicator = true) => {
-    if (showLoadingIndicator) {
-        setLoading(true);
-    }
+    if (showLoadingIndicator) setLoading(true);
     try {
-      const data = await getArticleById(articleId);
-      setArticle(data);
-      setIsBookmarked(data.isBookmarked || false);
-      setEditableArticleData({ // Inisialisasi data untuk form edit
-        title: data.title,
-        content: data.content,
-        category: data.category,
-      });
+      const data = await getArticleByIdFirebase(articleId); // <--- GUNAKAN FUNGSI FIREBASE
+      if (data) {
+        setArticle(data);
+        setIsBookmarked(data.isBookmarked || false);
+        setEditableArticleData({
+          title: data.title,
+          content: data.content,
+          category: data.category,
+        });
+      } else {
+        Alert.alert('Error', 'Artikel tidak ditemukan.');
+        if (navigation.canGoBack()) navigation.goBack();
+      }
     } catch (error) {
-      console.error("Error fetching article detail:", error.response?.data || error.message);
+      console.error("Error fetching article detail from Firebase:", error);
       Alert.alert('Error', 'Gagal memuat detail artikel.');
-      if (navigation.canGoBack()) {
-        navigation.goBack();
-      }
+      if (navigation.canGoBack()) navigation.goBack();
     } finally {
-      if (showLoadingIndicator) {
-        setLoading(false);
-      }
+      if (showLoadingIndicator) setLoading(false);
     }
   };
 
@@ -85,35 +97,33 @@ const ArtikelDetailScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
-      // Jika ingin data refresh setiap kali layar fokus (setelah edit/bookmark dari tempat lain)
-      // Anda bisa memanggil fetchArticleDetail(false) di sini;
-      // "false" agar tidak menampilkan loading indicator besar.
-      // Namun, karena kita mengupdate state 'article' setelah update bookmark/edit,
-      // mungkin tidak perlu fetch ulang di sini kecuali ada perubahan dari sumber eksternal.
-
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 300,
         useNativeDriver: true,
       }).start();
       return () => {
-        fadeAnim.setValue(0); // Reset animasi saat meninggalkan layar
-        setIsEditing(false); // Keluar dari mode edit jika layar tidak fokus
+        fadeAnim.setValue(0);
+        setIsEditing(false);
       }
     }, [fadeAnim])
   );
 
   const handleToggleBookmark = async () => {
-    if (!article || bookmarkLoading || isEditing) return; // Jangan bookmark saat edit
+    if (!article || bookmarkLoading || isEditing) return;
     setBookmarkLoading(true);
     try {
       const newBookmarkStatus = !isBookmarked;
-      const updatedArticleData = await updateArticle(articleId, { isBookmarked: newBookmarkStatus });
-      setArticle(updatedArticleData);
-      setIsBookmarked(newBookmarkStatus);
+      await updateArticleFirebase(articleId, { isBookmarked: newBookmarkStatus }); // <--- GUNAKAN FUNGSI FIREBASE
+      // Fetch ulang data untuk mendapatkan versi terbaru (termasuk kemungkinan updatedAt dari server)
+      const updatedData = await getArticleByIdFirebase(articleId);
+      if (updatedData) {
+        setArticle(updatedData);
+        setIsBookmarked(updatedData.isBookmarked || false);
+      }
       Alert.alert('Sukses', newBookmarkStatus ? 'Artikel disimpan!' : 'Artikel dihapus dari simpanan.');
     } catch (error) {
-      console.error("Error updating bookmark status:", error.response?.data || error.message);
+      console.error("Error updating bookmark status with Firebase:", error);
       Alert.alert('Error', 'Gagal memperbarui status simpan artikel.');
     } finally {
       setBookmarkLoading(false);
@@ -148,13 +158,16 @@ const ArtikelDetailScreen = () => {
         content: editableArticleData.content,
         category: editableArticleData.category,
       };
-      const updatedData = await updateArticle(articleId, payload);
-      setArticle(updatedData);
-      setIsBookmarked(updatedData.isBookmarked || false); // Update status bookmark juga jika ada perubahan dari server
+      await updateArticleFirebase(articleId, payload); // <--- GUNAKAN FUNGSI FIREBASE
+      const updatedData = await getArticleByIdFirebase(articleId); // Fetch data terbaru
+      if (updatedData) {
+        setArticle(updatedData);
+        setIsBookmarked(updatedData.isBookmarked || false);
+      }
       setIsEditing(false);
       Alert.alert('Sukses', 'Artikel berhasil diperbarui!');
     } catch (error) {
-      console.error("Error saving changes:", error.response?.data || error.message);
+      console.error("Error saving changes with Firebase:", error);
       Alert.alert('Error', `Gagal menyimpan perubahan: ${error.message}`);
     } finally {
       setIsSavingEdit(false);
@@ -162,7 +175,7 @@ const ArtikelDetailScreen = () => {
   };
 
   const handleDelete = () => {
-    if (!article || isEditing) return; // Jangan delete saat edit
+    if (!article || isEditing) return;
     Alert.alert(
       "Hapus Artikel",
       "Apakah Anda yakin ingin menghapus artikel ini? Tindakan ini tidak dapat dibatalkan.",
@@ -171,15 +184,14 @@ const ArtikelDetailScreen = () => {
         { text: "Hapus", onPress: async () => {
             setLoading(true);
             try {
-              await deleteArticle(articleId);
+              await deleteArticleFirebase(articleId); // <--- GUNAKAN FUNGSI FIREBASE
               Alert.alert("Sukses", "Artikel berhasil dihapus.");
               navigation.goBack();
             } catch (error) {
-              console.error("Error deleting article:", error.response?.data || error.message);
+              console.error("Error deleting article with Firebase:", error);
               Alert.alert("Error", `Gagal menghapus artikel: ${error.message}`);
               setLoading(false);
             }
-            // setLoading(false) tidak perlu jika navigasi berhasil
           },
           style: "destructive"
         }
@@ -187,7 +199,12 @@ const ArtikelDetailScreen = () => {
     );
   };
 
-  if (loading && !article) {
+  // Sisa kode JSX dan Styles tetap sama seperti versi terakhir Anda
+  // Pastikan untuk menggunakan `formatDate` untuk `article.createdAt`
+  // dan `article.totalLikes || 0`, `article.totalShares || 0`
+  // ... (kode JSX dan Styles dari respons Anda sebelumnya) ...
+
+    if (loading && !article) {
     return (
       <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color={colors.greenMint()} />
@@ -233,7 +250,7 @@ const ArtikelDetailScreen = () => {
 
       <ScrollView
         contentContainerStyle={styles.scrollContentContainer}
-        keyboardShouldPersistTaps="handled" // Agar tap di luar input menutup keyboard saat edit
+        keyboardShouldPersistTaps="handled"
       >
         {isEditing ? (
           <View style={styles.editFormContainer}>
@@ -306,12 +323,12 @@ const ArtikelDetailScreen = () => {
               </TouchableOpacity>
           </View>
         )}
-        {/* Tombol Simpan dan Batal saat mode edit dipindahkan ke header untuk UI yang lebih bersih */}
       </ScrollView>
     </Animated.View>
   );
 };
 
+// Styles (styles dan textInputStyles dari respons Anda sebelumnya)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -344,16 +361,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 15,
-    paddingVertical: 10, // Sedikit dikurangi
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.lightGrey(),
-    paddingTop: Platform.OS === 'ios' ? 45 : 15, // Disesuaikan untuk status bar
+    paddingTop: Platform.OS === 'ios' ? 45 : 15,
     backgroundColor: colors.white(),
-    height: Platform.OS === 'ios' ? 90 : 60, // Tinggi header
+    height: Platform.OS === 'ios' ? 90 : 60,
   },
   headerNavButton: {
-    padding: 8, // Area tekan lebih besar
-    zIndex:1 // Pastikan di atas elemen lain jika ada overlap tak terduga
+    padding: 8,
+    zIndex:1
   },
   headerTitle: {
     flex: 1,
@@ -361,23 +378,23 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: fontType['Pjs-Bold'],
     color: colors.black(),
-    marginHorizontal: 5, // Mengurangi margin agar lebih pas
+    marginHorizontal: 5,
   },
   headerActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    minWidth: 40, // Beri ruang minimal untuk tombol aksi
+    minWidth: 40,
   },
   actionButton: {
-    padding: 8, // Area tekan lebih besar
+    padding: 8,
   },
   scrollContentContainer: {
     paddingHorizontal: 20,
     paddingVertical: 20,
-    paddingBottom: 80, // Lebih banyak ruang di bawah
+    paddingBottom: 80,
   },
   title: {
-    fontSize: 22, // Sedikit lebih kecil
+    fontSize: 22,
     fontFamily: fontType['Pjs-Bold'],
     color: colors.black(),
     marginBottom: 12,
@@ -390,7 +407,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   category: {
-    fontSize: 13, // Sedikit lebih kecil
+    fontSize: 13,
     fontFamily: fontType['Pjs-Medium'],
     color: colors.greenMint(),
     backgroundColor: colors.greenMint(0.1),
@@ -399,7 +416,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   date: {
-    fontSize: 12, // Sedikit lebih kecil
+    fontSize: 12,
     fontFamily: fontType['Pjs-Regular'],
     color: colors.grey(),
   },
@@ -410,11 +427,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   content: {
-    fontSize: 15, // Sedikit lebih kecil
+    fontSize: 15,
     fontFamily: fontType['Pjs-Regular'],
-    color: colors.black(0.8), // Sedikit lebih gelap
-    lineHeight: 24, // Jarak antar baris
-    textAlign: 'left', // Default, bisa juga 'justify'
+    color: colors.black(0.8),
+    lineHeight: 24,
+    textAlign: 'left',
   },
   statsSection: {
     flexDirection: 'row',
@@ -437,17 +454,16 @@ const styles = StyleSheet.create({
   },
   actionButtonsBottom: {
     flexDirection: 'row',
-    justifyContent: 'space-around', // Atau 'space-between' atau 'flex-end'
+    justifyContent: 'space-around',
     marginTop: 25,
-    // marginBottom: 20, // Dihilangkan, padding di scrollContentContainer
   },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18, // Disesuaikan
-    paddingVertical: 12, // Disesuaikan
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     borderRadius: 8,
-    minWidth: 130, // Disesuaikan
+    minWidth: 130,
     justifyContent: 'center',
     elevation: 2,
   },
@@ -464,7 +480,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   editFormContainer: {
-    gap: 18, // Jarak antar field input
+    gap: 18,
   },
 });
 
@@ -475,24 +491,25 @@ const textInputStyles = StyleSheet.create({
     label: {
         fontSize: 14,
         fontFamily: fontType['Pjs-Medium'],
-        color: colors.black(0.7), // Label lebih jelas
+        color: colors.black(0.7),
         marginBottom: 6,
     },
     input: {
         borderWidth: 1,
-        borderColor: colors.grey(0.4), // Border lebih jelas
+        borderColor: colors.grey(0.4),
         borderRadius: 8,
         paddingHorizontal: 14,
-        paddingVertical: Platform.OS === 'ios' ? 14 : 10, // Padding lebih nyaman
+        paddingVertical: Platform.OS === 'ios' ? 14 : 10,
         fontSize: 15,
         fontFamily: fontType['Pjs-Regular'],
         color: colors.black(),
-        backgroundColor: colors.white(), // Latar belakang input putih
+        backgroundColor: colors.white(),
     },
     textArea: {
-        minHeight: 180, // Lebih tinggi
+        minHeight: 180,
         textAlignVertical: 'top',
     },
 });
+
 
 export default ArtikelDetailScreen;

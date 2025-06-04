@@ -3,7 +3,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  TextInput, // Pastikan TextInput diimpor
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -15,16 +15,16 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { fontType, colors } from '../../theme';
 import { useFocusEffect } from '@react-navigation/native';
-import { createArticle } from '../../services/api';
-
+// Impor fungsi Firebase
+import { createArticleFirebase } from '../../services/firebase'; 
 const ArticleForm = () => {
   const navigation = useNavigation();
   const [articleData, setArticleData] = useState({
     title: '',
     content: '',
-    category: '', // Kategori sekarang string kosong, diisi manual oleh user
+    category: '', // Kategori sebagai input teks bebas
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // Ubah nama state jika perlu (misal: isSubmitting)
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
@@ -47,23 +47,27 @@ const ArticleForm = () => {
   };
 
   const handleUpload = async () => {
-    // Validasi tetap ada untuk kategori, memastikan tidak kosong
     if (!articleData.title || !articleData.content || !articleData.category) {
       Alert.alert('Input Tidak Lengkap', 'Judul, Kategori, dan Konten artikel tidak boleh kosong.');
       return;
     }
     setLoading(true);
     try {
+      // Payload untuk Firebase (tanpa image, createdAt akan di-handle oleh serverTimestamp)
       const payload = {
         title: articleData.title,
         content: articleData.content,
-        category: articleData.category, // Kategori diambil dari input teks
+        category: articleData.category,
+        // totalLikes, totalShares, isBookmarked akan di-default di fungsi createArticleFirebase
       };
-      const response = await createArticle(payload);
-      Alert.alert('Sukses', `Artikel "${response.title}" berhasil ditambahkan!`);
+
+      await createArticleFirebase(payload); // <--- GUNAKAN FUNGSI FIREBASE
+
+      Alert.alert('Sukses', 'Artikel berhasil ditambahkan!');
       navigation.goBack();
+
     } catch (error) {
-      console.error("Error uploading article:", error);
+      console.error("Error uploading article to Firebase:", error);
       Alert.alert('Error', `Terjadi kesalahan saat mengupload artikel: ${error.message}`);
     } finally {
       setLoading(false);
@@ -80,7 +84,9 @@ const ArticleForm = () => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContainer}>
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={textInputStyles.container}>
           <Text style={textInputStyles.label}>Judul Artikel</Text>
           <TextInput
@@ -92,15 +98,14 @@ const ArticleForm = () => {
           />
         </View>
 
-        {/* Field Kategori diubah menjadi TextInput biasa */}
         <View style={textInputStyles.container}>
           <Text style={textInputStyles.label}>Kategori Artikel</Text>
           <TextInput
             placeholder="Contoh: Kesehatan, Nutrisi, Olahraga"
             value={articleData.category}
-            onChangeText={text => handleChange('category', text)} // value di-state sebagai articleData.category
+            onChangeText={text => handleChange('category', text)}
             placeholderTextColor={colors.grey(0.6)}
-            style={textInputStyles.input} // Menggunakan style input yang sama
+            style={textInputStyles.input}
           />
         </View>
 
@@ -114,6 +119,7 @@ const ArticleForm = () => {
             multiline
             numberOfLines={10}
             style={[textInputStyles.input, textInputStyles.textArea]}
+            textAlignVertical="top"
           />
         </View>
       </ScrollView>
@@ -133,7 +139,7 @@ const ArticleForm = () => {
   );
 };
 
-// Styles (styles, textInputStyles) tetap sama, pickerStyles bisa dihapus jika tidak digunakan lagi.
+// Styles (styles, textInputStyles) tetap sama seperti versi terakhir Anda
 // Pastikan styles.loadingOverlay sudah ada.
 const styles = StyleSheet.create({
   container: {
@@ -202,22 +208,22 @@ const textInputStyles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontFamily: fontType['Pjs-Medium'],
-    color: colors.grey(),
-    marginBottom: 8,
+    color: colors.black(0.7),
+    marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.lightGrey(0.5),
+    borderColor: colors.grey(0.4),
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
-    fontSize: 14,
+    paddingHorizontal: 14,
+    paddingVertical: Platform.OS === 'ios' ? 14 : 10,
+    fontSize: 15,
     fontFamily: fontType['Pjs-Regular'],
     color: colors.black(),
-    backgroundColor: colors.extraLightGrey(0.2),
+    backgroundColor: colors.white(),
   },
   textArea: {
-    minHeight: 150,
+    minHeight: 180,
     textAlignVertical: 'top',
   },
 });

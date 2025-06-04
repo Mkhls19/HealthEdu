@@ -10,28 +10,38 @@ import {
   RefreshControl,
   Pressable,
   Alert,
-  Platform, // Ditambahkan untuk Platform.OS
+  Platform,
 } from 'react-native';
 import { colors, fontType } from '../../theme';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { getBookmarkedArticles } from '../../services/api';
+// Import fungsi Firebase
+import { getBookmarkedArticlesFirebase } from '../../services/firebase'; 
 
-// Fungsi format tanggal sederhana
-const formatDate = (isoString) => {
-  if (!isoString) return 'Tanggal tidak tersedia';
+// Fungsi format tanggal (konsisten dengan ArtikelDetailScreen)
+const formatDate = (timestamp) => {
+  if (!timestamp) return 'Tanggal tidak tersedia';
   try {
-    const date = new Date(isoString);
+    const date = timestamp.toDate(); // Konversi Firestore Timestamp ke Date
     return date.toLocaleDateString('id-ID', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
   } catch (error) {
-    console.error("Error formatting date:", error);
-    return 'Format tanggal salah';
+    // Fallback
+    try {
+        const date = new Date(timestamp);
+         return date.toLocaleDateString('id-ID', {
+            year: 'numeric', month: 'long', day: 'numeric'
+        });
+    } catch (e) {
+        console.error("Error formatting date:", error, e);
+        return 'Format tanggal salah';
+    }
   }
 };
 
+// Ganti nama komponen jika Anda sebelumnya menggunakan 'Bookmark'
 const BookmarkScreen = () => {
   const navigation = useNavigation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -41,11 +51,11 @@ const BookmarkScreen = () => {
 
   const fetchBookmarkedArticles = async () => {
     try {
-      const data = await getBookmarkedArticles();
-      const sortedData = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      setBookmarkedArticles(sortedData);
+      const data = await getBookmarkedArticlesFirebase(); // <--- GUNAKAN FUNGSI FIREBASE
+      // Sorting sudah dihandle di firebase.js (orderBy createdAt desc)
+      setBookmarkedArticles(data);
     } catch (error) {
-      console.error("Error fetching bookmarked articles:", error);
+      console.error("Error fetching bookmarked articles from Firebase:", error);
       Alert.alert('Error', 'Gagal memuat artikel yang disimpan.');
     } finally {
       setLoading(false);
@@ -57,17 +67,13 @@ const BookmarkScreen = () => {
     useCallback(() => {
       setLoading(true);
       fetchBookmarkedArticles();
-
       fadeAnim.setValue(0);
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 500,
         useNativeDriver: true,
       }).start();
-
-      return () => {
-        // Opsional cleanup
-      };
+      return () => {};
     }, [])
   );
 
@@ -81,10 +87,9 @@ const BookmarkScreen = () => {
       key={item.id}
       style={styles.bookmarkItem}
       onPress={() => {
-        // --- PERBAIKAN NAVIGASI DI SINI ---
-        navigation.navigate('ArtikelTab', { // 1. Targetkan NAMA TAB (dari App.jsx)
-          screen: 'ArtikelDetail',         // 2. Targetkan NAMA SCREEN di dalam stack tersebut
-          params: { articleId: item.id },  // 3. Kirim parameter yang dibutuhkan
+        navigation.navigate('ArtikelTab', {
+          screen: 'ArtikelDetail',
+          params: { articleId: item.id },
         });
       }}
     >
@@ -94,6 +99,8 @@ const BookmarkScreen = () => {
     </Pressable>
   );
 
+  // Sisa kode JSX dan Styles tetap sama seperti versi terakhir Anda
+  // ... (kode JSX dan Styles dari respons Anda sebelumnya) ...
   if (loading && bookmarkedArticles.length === 0) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -194,5 +201,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
 
 export default BookmarkScreen;

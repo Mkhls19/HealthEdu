@@ -1,5 +1,5 @@
-// src/screens/ArtikelScreen/index.jsx
-import React, { useRef, useCallback, useState } from 'react'; // useEffect dihapus karena useFocusEffect sudah mencakup
+// src/screens/Article/index.jsx (atau ArtikelScreen/index.jsx)
+import React, { useRef, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -8,31 +8,42 @@ import {
   Pressable,
   Alert,
   Animated,
-  // Image, // Dihilangkan jika tidak ada gambar artikel
   ActivityIndicator,
   RefreshControl,
+  Platform, // Ditambahkan
 } from 'react-native';
 import { colors, fontType } from '../../theme';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-// Import fungsi getAllArticles dari layanan API kita
-import { getAllArticles } from '../../services/api'; // <--- PERUBAHAN DI SINI
+// Import fungsi Firebase
+import { getAllArticlesFirebase } from '../../services/firebase'; // <--- GANTI IMPORT API
 
-// Fungsi format tanggal sederhana (bisa dipindah ke utils jika digunakan di banyak tempat)
-const formatDate = (isoString) => {
-  if (!isoString) return 'Tanggal tidak tersedia';
+// Fungsi format tanggal (bisa dipindah ke utils/formatDate.js jika digunakan di banyak tempat)
+const formatDate = (timestamp) => {
+  if (!timestamp) return 'Tanggal tidak tersedia';
   try {
-    const date = new Date(isoString);
+    // Firestore timestamp memiliki properti toDate() untuk konversi ke objek Date JavaScript
+    const date = timestamp.toDate();
     return date.toLocaleDateString('id-ID', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
   } catch (error) {
-    return 'Format tanggal salah';
+    console.error("Error formatting date from Firebase timestamp:", error);
+    // Fallback jika timestamp bukan objek Firestore Timestamp (misalnya, masih data lama)
+    try {
+        const date = new Date(timestamp);
+        return date.toLocaleDateString('id-ID', {
+            year: 'numeric', month: 'long', day: 'numeric'
+        });
+    } catch (e) {
+        return 'Format tanggal salah';
+    }
   }
 };
 
-const ArtikelScreen = () => {
+// Pastikan nama komponen ini sesuai dengan yang Anda ekspor dan gunakan di App.jsx
+const ArticleScreen = () => {
   const navigation = useNavigation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [articles, setArticles] = useState([]);
@@ -40,26 +51,24 @@ const ArtikelScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchArticles = async () => {
-    // Tidak perlu setLoading(true) di sini jika sudah diatur oleh useFocusEffect
-    // atau pemicu awal. Untuk refresh, setRefreshing(true) sudah cukup.
     try {
-      // Menggunakan fungsi getAllArticles dari api.js
-      const data = await getAllArticles(); // <--- PERUBAHAN DI SINI
-      // Urutkan dari yang terbaru berdasarkan createdAt
-      const sortedData = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      setArticles(sortedData);
+      const data = await getAllArticlesFirebase(); // <--- GUNAKAN FUNGSI FIREBASE
+      // Tidak perlu sorting manual lagi jika sudah di orderBy di fungsi firebase.js
+      // Jika orderBy belum diimplementasikan di firebase.js atau ingin sorting berbeda:
+      // const sortedData = data.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
+      setArticles(data); // Langsung set data jika sudah diurutkan dari Firestore
     } catch (error) {
-      console.error("Error fetching articles:", error);
+      console.error("Error fetching articles from Firebase:", error);
       Alert.alert('Error', 'Gagal memuat artikel.');
     } finally {
-      setLoading(false); // Pastikan loading di-set false setelah fetch
+      setLoading(false);
       setRefreshing(false);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true); // Set loading true di awal fokus
+      setLoading(true);
       fetchArticles();
       fadeAnim.setValue(0);
       Animated.timing(fadeAnim, {
@@ -68,8 +77,7 @@ const ArtikelScreen = () => {
         useNativeDriver: true,
       }).start();
       return () => {};
-    }, []) // Dependency array kosong agar fetchArticles dipanggil saat fokus
-          // dan tidak bergantung pada fadeAnim untuk re-fetch.
+    }, [])
   );
 
   const onRefresh = useCallback(() => {
@@ -82,17 +90,11 @@ const ArtikelScreen = () => {
       style={styles.articleCard}
       onPress={() => navigation.navigate('ArtikelDetail', { articleId: item.id })}
     >
-      {/* Jika Anda memutuskan untuk memiliki field 'image' di MockAPI (meski kosong atau URL placeholder),
-          Anda bisa menampilkan komponen Image di sini. Jika tidak, bagian ini bisa dihilangkan.
-      {item.image && ( // Tampilkan gambar jika ada URL
-        <Image source={{ uri: item.image }} style={styles.articleImage} resizeMode="cover" />
-      )}
-      */}
       <View style={styles.articleTextContainer}>
         <Text style={styles.articleTitle} numberOfLines={2}>{item.title}</Text>
-        <Text style={styles.articleCategory} numberOfLines={1}>{item.category}</Text>
+        <Text style={styles.articleCategory} numberOfLines={1}>Kategori: {item.category}</Text>
+        {/* Pastikan item.createdAt adalah objek Timestamp Firestore atau string ISO yang valid */}
         {item.createdAt && <Text style={styles.articleDate} numberOfLines={1}>{formatDate(item.createdAt)}</Text>}
-        {/* Menampilkan totalShares jika ada */}
         {typeof item.totalShares === 'number' && (
           <Text style={styles.articleShares} numberOfLines={1}>Dibagikan: {item.totalShares} kali</Text>
         )}
@@ -131,6 +133,7 @@ const ArtikelScreen = () => {
   );
 };
 
+// Styles (gunakan styles yang sudah Anda definisikan sebelumnya, pastikan konsisten)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -148,12 +151,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.lightGrey(),
     alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 45 : 20,
   },
   headerTitle: {
     fontSize: 20,
     fontFamily: fontType['Pop-Bold'],
     color: colors.black(),
-    marginTop: Platform.OS === 'ios' ? 30 : 20, // Penyesuaian margin atas
   },
   listContainer: {
     paddingHorizontal: 15,
@@ -166,40 +169,34 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     elevation: 3,
     shadowColor: colors.black(0.5),
-    shadowOffset: { width: 0, height: 1 }, // Penyesuaian shadow
-    shadowOpacity: 0.05, // Penyesuaian shadow
-    shadowRadius: 2, // Penyesuaian shadow
-    // Hapus overflow: 'hidden' jika tidak ada gambar agar shadow terlihat lebih baik di iOS
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    borderWidth: 1, // Tambahkan border tipis agar kartu lebih terlihat
+    borderColor: colors.extraLightGrey(0.8),
   },
-  // Hapus style articleImage jika tidak ada gambar
-  // articleImage: {
-  //   width: '100%',
-  //   height: 180,
-  //   borderTopLeftRadius: 12, // Jika ada gambar dan overflow hidden dihilangkan
-  //   borderTopRightRadius: 12, // Jika ada gambar dan overflow hidden dihilangkan
-  // },
   articleTextContainer: {
     padding: 15,
   },
   articleTitle: {
-    fontSize: 17, // Sedikit diperbesar
-    fontFamily: fontType['Pjs-Bold'], // Font lebih tebal untuk judul
+    fontSize: 17,
+    fontFamily: fontType['Pjs-Bold'],
     color: colors.black(),
     marginBottom: 6,
   },
   articleCategory: {
     fontSize: 13,
-    fontFamily: fontType['Pjs-Medium'], // Medium untuk kategori
+    fontFamily: fontType['Pjs-Medium'],
     color: colors.greenMint(),
     marginBottom: 4,
   },
   articleDate: {
     fontSize: 12,
-    fontFamily: fontType['Pjs-Regular'], // Regular untuk tanggal
+    fontFamily: fontType['Pjs-Regular'],
     color: colors.grey(),
     marginBottom: 4,
   },
-  articleShares: { // Style untuk totalShares
+  articleShares: {
     fontSize: 12,
     fontFamily: fontType['Pjs-Regular'],
     color: colors.grey(),
@@ -208,7 +205,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fontType['Pjs-Regular'],
     color: colors.grey(),
+    textAlign: 'center',
   }
 });
 
-export default ArtikelScreen;
+// Pastikan nama komponen yang diekspor sesuai dengan yang digunakan di App.jsx dan src/index.jsx
+export default ArticleScreen; // Atau 'Article' jika itu nama yang Anda gunakan

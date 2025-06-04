@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "360857814575",
+    "project_id": "healthedu-b613c",
+    "storage_bucket": "healthedu-b613c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:360857814575:android:4f91a20eb31bcad47668da",
+        "android_client_info": {
+          "package_name": "com.healthedu"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbCkvoRrRN7GZBPI2xX2oEDEuFYL0BPI4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
