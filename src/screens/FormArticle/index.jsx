@@ -1,5 +1,5 @@
 // src/screens/FormArticle/index.jsx
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,22 +11,26 @@ import {
   Animated,
   ActivityIndicator,
   Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { fontType, colors } from '../../theme';
 import { useFocusEffect } from '@react-navigation/native';
 // Impor fungsi Firebase
-import { createArticleFirebase } from '../../services/firebase'; 
+import { createArticleFirebase } from '../../services/firebase';
+import notifee, { AndroidImportance } from '@notifee/react-native';
+
 const ArticleForm = () => {
   const navigation = useNavigation();
   const [articleData, setArticleData] = useState({
     title: '',
     content: '',
-    category: '', // Kategori sebagai input teks bebas
+    category: '',
   });
-  const [loading, setLoading] = useState(false); // Ubah nama state jika perlu (misal: isSubmitting)
+  const [loading, setLoading] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  // Efek untuk animasi fade-in saat layar fokus
   useFocusEffect(
     useCallback(() => {
       fadeAnim.setValue(0);
@@ -38,6 +42,38 @@ const ArticleForm = () => {
       return () => {};
     }, [fadeAnim])
   );
+
+  // Efek untuk inisialisasi Notifee dan mendapatkan izin notifikasi
+  useEffect(() => {
+    async function setupNotifications() {
+      try {
+        if (Platform.OS === 'android') {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+          );
+          if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+            console.log('Izin notifikasi diberikan.');
+          } else {
+            console.warn('Izin notifikasi ditolak.');
+          }
+        }
+
+        await notifee.createChannel({
+          id: 'upload_article',
+          name: 'Upload Artikel',
+          importance: AndroidImportance.HIGH,
+        });
+
+      } catch (error) {
+        console.error("Error setting up notifications:", error);
+      }
+    }
+
+    setupNotifications();
+
+    return () => {};
+  }, []);
+
 
   const handleChange = (key, value) => {
     setArticleData(prevData => ({
@@ -53,22 +89,42 @@ const ArticleForm = () => {
     }
     setLoading(true);
     try {
-      // Payload untuk Firebase (tanpa image, createdAt akan di-handle oleh serverTimestamp)
       const payload = {
         title: articleData.title,
         content: articleData.content,
         category: articleData.category,
-        // totalLikes, totalShares, isBookmarked akan di-default di fungsi createArticleFirebase
+        totalLikes: 0,
+        totalShares: 0,
+        isBookmarked: false,
       };
 
-      await createArticleFirebase(payload); // <--- GUNAKAN FUNGSI FIREBASE
+      await createArticleFirebase(payload);
 
-      Alert.alert('Sukses', 'Artikel berhasil ditambahkan!');
+      // Tampilkan notifikasi sukses setelah upload
+      await notifee.displayNotification({
+        title: 'Upload Berhasil! 🗒️',
+        body: `Artikel "${articleData.title}" berhasil diunggah.`,
+        android: {
+          channelId: 'upload_article',
+          smallIcon: 'ic_launcher',
+          color: '#00C896', // Menggunakan nilai heksadesimal untuk greenMint
+        },
+      });
+
       navigation.goBack();
 
     } catch (error) {
       console.error("Error uploading article to Firebase:", error);
-      Alert.alert('Error', `Terjadi kesalahan saat mengupload artikel: ${error.message}`);
+      // Tampilkan notifikasi gagal jika ada error
+      await notifee.displayNotification({
+        title: 'Upload Gagal! ❗',
+        body: `Gagal mengunggah artikel "${articleData.title}". Coba lagi.`,
+        android: {
+          channelId: 'upload_article',
+          smallIcon: 'ic_launcher',
+          color: '#FFA500', // Menggunakan nilai heksadesimal untuk orangeBright
+        },
+      });
     } finally {
       setLoading(false);
     }
@@ -140,7 +196,6 @@ const ArticleForm = () => {
 };
 
 // Styles (styles, textInputStyles) tetap sama seperti versi terakhir Anda
-// Pastikan styles.loadingOverlay sudah ada.
 const styles = StyleSheet.create({
   container: {
     flex: 1,
